@@ -70,7 +70,7 @@ h1, h2, h3, p { margin: 0; letter-spacing: 0; }
 .project-heading h2 { font-size: 25px; line-height: 1.12; margin-top: 3px; }
 .project-description { font-size: 17px; line-height: 1.46; color: #526259; }
 .project-period { margin-top: 10px; font: 11px "Courier New", monospace; color: #9b9c83; }
-.ds-lower-screen { width: 360px; height: 240px; padding: 12px 15px 8px; display: flex; flex-direction: column; background: #d7dfb8; color: #46583e; overflow: hidden; }
+.ds-lower-screen { width: 360px; height: 210px; padding: 12px 15px 8px; display: flex; flex-direction: column; background: #d7dfb8; color: #46583e; overflow: hidden; }
 .ds-lower-header { display: flex; justify-content: space-between; align-items: center; font: 11px "Courier New", monospace; border-bottom: 1px solid #9aa987; padding-bottom: 6px; }
 .ds-lower-header button { display: grid; place-items: center; width: 27px; height: 24px; border: 1px solid #8b9d75; border-radius: 3px; background: #edf0d6; color: #56684b; }
 .project-stack { display: flex; flex-wrap: wrap; align-content: center; gap: 6px; flex: 1; padding: 8px 0; }
@@ -123,5 +123,34 @@ h1, h2, h3, p { margin: 0; letter-spacing: 0; }
   .object-dock button span { display: none; }
   .object-label { min-width: 91px; padding: 5px 7px; font-size: 10px; }
   .label-device { font-size: 8px; }
+  .project-description { font-size: 22px; line-height: 1.35; }
+  .project-period { display: none; }
+  .project-stack span { font-size: 18px; padding: 4px 6px; }
+  .project-facts { font-size: 17px; }
+  .ds-link-row a { font-size: 19px; }
+  .ds-pagination button { height: 30px; width: 39px; }
+  .ds-pagination { font-size: 16px; }
+  .os-tabs button { font-size: 23px; padding: 10px 15px; }
+  .computer-content { padding: 16px 22px; }
+  .identity-row h1 { font-size: 36px; }
+  .identity-row p { font-size: 24px; }
+  .computer-muted { font-size: 21px !important; }
+  .skill-columns { grid-template-columns: 1fr; gap: 13px; }
+  .skill-columns h2 { font-size: 23px; }
+  .skill-columns p { font-size: 25px; }
+  .experience-entry h2 { font-size: 34px; }
+  .experience-entry h3 { font-size: 26px; }
+  .experience-entry p { font-size: 27px; }
+  .experience-entry ul { font-size: 24px; }
+  .computer-links a { font-size: 21px; padding: 7px 10px; }
+  .paging button { width: 49px; height: 43px; }
+  .cassette-display h2 { font-size: 29px; }
+  .cassette-display p { font-size: 23px; max-height: 69px; }
+  .tape-stack { font-size: 13px; }
+  .tape-controls button { width: 47px; height: 33px; }
+  .tape-controls a { font-size: 20px; }
+  .contact-display p { font-size: 22px; }
+  .contact-controls a { font-size: 20px; }
+  .contact-controls button { height: 31px; width: 36px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

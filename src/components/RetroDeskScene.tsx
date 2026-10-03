@@ -40,8 +40,9 @@ function CameraRig({ activeMode }: { activeMode: PortfolioMode | null }) {
   useFrame((state, delta) => {
     const aspect = size.width / size.height;
     const target = new THREE.Vector3(...(activeMode ? locations[activeMode] : [0, 1, 0] as Vector));
+    if (aspect < 0.8 && activeMode === 'projects') target.y += 0.5;
     const height = activeMode === 'about' ? 3.4 : activeMode === 'projects' ? 2.3 : activeMode ? 2.3 : 5.4;
-    const width = activeMode === 'about' ? 3.7 : activeMode === 'projects' ? 2.65 : activeMode ? 2.75 : 10.4;
+    const width = activeMode === 'about' ? (aspect < 0.8 ? 3.05 : 3.7) : activeMode === 'projects' ? (aspect < 0.8 ? 2.35 : 2.65) : activeMode ? (aspect < 0.8 ? 2.45 : 2.75) : 10.4;
     const distance = Math.max(height / (2 * Math.tan(THREE.MathUtils.degToRad(21))), width / (2 * Math.tan(THREE.MathUtils.degToRad(21)) * aspect));
     const slope = activeMode === 'projects' ? 0.5 : activeMode === 'hardware' || activeMode === 'contact' ? 0.72 : activeMode === 'about' ? 0.08 : 0.28;
     const yaw = activeMode === 'projects' ? 0.18 : activeMode === 'hardware' ? -0.2 : activeMode === 'contact' ? -0.17 : 0;
@@ -79,6 +80,7 @@ function Keyboard({ onSelectMode }: SceneProps) {
 }
 
 function Nintendo3DS(props: SceneProps) {
+  const mobile = useThree(state => state.size.width < 600);
   const [index, setIndex] = useState(0);
   const [details, setDetails] = useState(false);
   const device = { ...props, mode: 'projects' as const };
@@ -92,9 +94,8 @@ function Nintendo3DS(props: SceneProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [props.activeMode]);
   const project = projects[index];
-  return <group position={[-3.0, 0.12, 1.05]} rotation={[0, 0.18, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('projects'); }}>
-    <Box size={[2.05, 0.13, 1.12]} color="#e3af48" radius={0.085} />
-    <Box size={[1.97, 0.045, 1.06]} position={[0, 0.081, 0]} color="#ffe083" radius={0.045} />
+  return <group position={[-3.0, mobile ? 0.65 : 0.12, 1.05]} rotation={[0, 0.18, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('projects'); }}>
+    {mobile && <Box size={[0.98, 0.5, 0.3]} position={[0, -0.39, -0.48]} color="#d6a952" />}
     <group position={[0, 0.14, -0.48]}>
       <Box size={[2.05, 1.19, 0.13]} position={[0, 0.58, 0]} color="#efbd52" radius={0.08} />
       <Box size={[1.75, 0.97, 0.015]} position={[0, 0.57, 0.077]} color="#333d43" radius={0.025} />
@@ -103,11 +104,15 @@ function Nintendo3DS(props: SceneProps) {
       {[-0.92, 0.92].map(x => [0, 1, 2].map(i => <mesh key={`${x}-${i}`} position={[x, 0.45 + i * 0.09, 0.074]}><sphereGeometry args={[0.015, 8, 8]} /><meshStandardMaterial color="#9d7830" /></mesh>))}
     </group>
     <mesh position={[0, 0.1, -0.48]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.08, 0.08, 1.87, 32]} /><meshStandardMaterial color="#cf9b3c" metalness={0.3} /></mesh>
-    <Box size={[1.07, 0.016, 0.74]} position={[0, 0.113, 0.04]} color="#273739" radius={0.02} />
-    <Screen {...device} position={[0, 0.13, 0.04]} rotation={[-Math.PI / 2, 0, 0]} factor={1.08}><ProjectBottomScreen project={project} index={index} onChange={change} details={details} onToggleDetails={() => setDetails(value => !value)} /></Screen>
-    <Screen {...device} position={[-0.77, 0.12, 0.15]} rotation={[-Math.PI / 2, 0, 0]} factor={1.15}><div className="physical-dpad"><button aria-label="3DS previous project" title="Previous project" onClick={() => change(-1)}><ArrowLeft size={25} /></button><button aria-label="3DS next project" title="Next project" onClick={() => change(1)}><ArrowRight size={25} /></button></div></Screen>
-    <Screen {...device} position={[0.76, 0.12, 0.1]} rotation={[-Math.PI / 2, 0, 0]} factor={1.1}><div className="physical-ab"><a aria-label={`3DS open ${project.name}`} href={project.href} target="_blank" rel="noopener noreferrer" title={`Open ${project.name}`}>A</a><button aria-label="3DS project details" title="Project details" onClick={() => setDetails(value => !value)}>B</button></div></Screen>
-    <Box size={[0.16, 0.024, 0.045]} position={[0.67, 0.113, 0.47]} color="#bc8c31" radius={0.01} />
+    <group position={[0, 0, -0.48]} rotation={[mobile ? 0.5 : 0, 0, 0]}><group position={[0, 0, 0.48]}>
+      <Box size={[2.05, 0.13, 1.12]} color="#e3af48" radius={0.085} />
+      <Box size={[1.97, 0.045, 1.06]} position={[0, 0.081, 0]} color="#ffe083" radius={0.045} />
+      <Box size={[1.3, 0.016, 0.79]} position={[0, 0.113, 0.04]} color="#273739" radius={0.02} />
+      <Screen {...device} position={[0, 0.13, 0.04]} rotation={[-Math.PI / 2, 0, 0]} factor={1.38}><ProjectBottomScreen project={project} index={index} onChange={change} details={details} onToggleDetails={() => setDetails(value => !value)} /></Screen>
+      <Screen {...device} position={[-0.83, 0.12, 0.15]} rotation={[-Math.PI / 2, 0, 0]} factor={1.15}><div className="physical-dpad"><button aria-label="3DS previous project" title="Previous project" onClick={() => change(-1)}><ArrowLeft size={25} /></button><button aria-label="3DS next project" title="Next project" onClick={() => change(1)}><ArrowRight size={25} /></button></div></Screen>
+      <Screen {...device} position={[0.82, 0.12, 0.1]} rotation={[-Math.PI / 2, 0, 0]} factor={1.1}><div className="physical-ab"><a aria-label={`3DS open ${project.name}`} href={project.href} target="_blank" rel="noopener noreferrer" title={`Open ${project.name}`}>A</a><button aria-label="3DS project details" title="Project details" onClick={() => setDetails(value => !value)}>B</button></div></Screen>
+      <Box size={[0.16, 0.024, 0.045]} position={[0.67, 0.113, 0.47]} color="#bc8c31" radius={0.01} />
+    </group></group>
     <DeviceLabel {...device} position={[0, 1.6, -0.48]} />
   </group>;
 }

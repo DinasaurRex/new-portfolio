@@ -47,10 +47,10 @@ async function inspect(label, viewport) {
   // Click the actual room object label, then use the device's physical buttons.
   await page.getByRole('button', { name: 'Projects 3DS', exact: true }).click();
   await page.waitForTimeout(1400);
+  await capture(page, `${label}-3ds`);
   await assertVisibleFrame(page, '[data-testid="project-screen"]');
   await assertVisibleFrame(page, '.ds-lower-screen');
   assert.equal(await page.locator('.project-heading h2').textContent(), 'Trakkit');
-  await capture(page, `${label}-3ds`);
   const names = ['BuildWith', 'Henry Jr.', 'Self-sustainable garden', 'MissedDay', 'Binomial theorem in Lean', 'Rock-paper-scissors', 'Feathers Pandemonium', 'Trakkit'];
   for (const name of names) {
     await page.getByRole('button', { name: '3DS next project', exact: true }).click();
