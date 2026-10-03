@@ -1,385 +1,208 @@
-import { useFrame } from '@react-three/fiber';
-import {
-  ContactShadows,
-  Environment,
-  Float,
-  OrbitControls,
-  PerspectiveCamera,
-  RoundedBox,
-} from '@react-three/drei';
-import { Canvas } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Html, RoundedBox } from '@react-three/drei';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import * as THREE from 'three';
-import { modeDetails, PortfolioMode } from '../portfolioData';
+import { hardwareProjects, modeDetails, PortfolioMode, projects, socials } from '../portfolioData';
+import { CassetteScreen, ComputerScreen, ContactScreen, ProjectBottomScreen, ProjectTopScreen } from './DeviceScreens';
 
-type RetroDeskSceneProps = {
-  activeMode: PortfolioMode;
-  onSelectMode: (mode: PortfolioMode) => void;
+type SceneProps = { activeMode: PortfolioMode | null; onSelectMode: (mode: PortfolioMode | null) => void };
+type DeviceProps = SceneProps & { mode: PortfolioMode };
+type Vector = [number, number, number];
+
+const locations: Record<PortfolioMode, Vector> = {
+  about: [-0.3, 1.67, -0.3], projects: [-3.0, 0.75, 1.05], hardware: [2.55, 0.62, 1.18], contact: [3.15, 1.42, -0.85],
 };
 
-type ClickableProps = {
-  children: React.ReactNode;
-  mode: PortfolioMode;
-  onSelectMode: (mode: PortfolioMode) => void;
-};
-
-function setCursor(cursor: string) {
-  document.body.style.cursor = cursor;
+function Box({ size, position = [0, 0, 0], color, radius = 0.05, rotation, metalness = 0.08 }: { size: Vector; position?: Vector; color: string; radius?: number; rotation?: Vector; metalness?: number }) {
+  return <RoundedBox args={size} position={position} rotation={rotation} radius={radius} smoothness={3} castShadow receiveShadow><meshStandardMaterial color={color} roughness={0.58} metalness={metalness} /></RoundedBox>;
 }
 
-function Clickable({ children, mode, onSelectMode }: ClickableProps) {
-  return (
-    <group
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelectMode(mode);
-      }}
-      onPointerOut={() => setCursor('auto')}
-      onPointerOver={(event) => {
-        event.stopPropagation();
-        setCursor('pointer');
-      }}
-    >
-      {children}
+function DeviceLabel({ mode, position, activeMode, onSelectMode }: DeviceProps & { position: Vector }) {
+  const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene'));
+  const detail = modeDetails[mode];
+  return <Html portal={portal} position={position} center zIndexRange={[110, 100]} style={{ display: activeMode === null ? 'block' : 'none' }}><button className="object-label" style={{ '--object-color': detail.accent } as React.CSSProperties} onClick={() => onSelectMode(mode)}><span className="label-dot" />{detail.label}<span className="label-device">{detail.device}</span></button></Html>;
+}
+
+function Screen({ children, mode, activeMode, onSelectMode, position, rotation, factor }: DeviceProps & { children: React.ReactNode; position: Vector; rotation?: Vector; factor: number }) {
+  const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene'));
+  return <Html portal={portal} transform position={position} rotation={rotation} distanceFactor={factor} zIndexRange={[90, 0]} style={{ display: activeMode === null || activeMode === mode ? 'block' : 'none' }}>
+    <div className={`device-surface ${activeMode === mode ? 'device-focused' : ''}`} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); if (activeMode !== mode) onSelectMode(mode); }}>{children}</div>
+  </Html>;
+}
+
+function CameraRig({ activeMode }: { activeMode: PortfolioMode | null }) {
+  const { camera, size, gl } = useThree();
+  const lookAt = useRef(new THREE.Vector3(0, 1, 0));
+  const initialized = useRef(false);
+  const reducedMotion = useRef(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  useFrame((state, delta) => {
+    const aspect = size.width / size.height;
+    const target = new THREE.Vector3(...(activeMode ? locations[activeMode] : [0, 1, 0] as Vector));
+    const height = activeMode === 'about' ? 3.4 : activeMode === 'projects' ? 2.3 : activeMode ? 2.3 : 5.4;
+    const width = activeMode === 'about' ? 3.7 : activeMode === 'projects' ? 2.65 : activeMode ? 2.75 : 10.4;
+    const distance = Math.max(height / (2 * Math.tan(THREE.MathUtils.degToRad(21))), width / (2 * Math.tan(THREE.MathUtils.degToRad(21)) * aspect));
+    const slope = activeMode === 'projects' ? 0.5 : activeMode === 'hardware' || activeMode === 'contact' ? 0.72 : activeMode === 'about' ? 0.08 : 0.28;
+    const yaw = activeMode === 'projects' ? 0.18 : activeMode === 'hardware' ? -0.2 : activeMode === 'contact' ? -0.17 : 0;
+    const destination = target.clone().add(new THREE.Vector3(Math.sin(yaw), slope, Math.cos(yaw)).normalize().multiplyScalar(distance));
+    const alpha = !initialized.current || reducedMotion.current ? 1 : 1 - Math.exp(-delta * 5);
+    camera.position.lerp(destination, alpha);
+    lookAt.current.lerp(target, alpha);
+    camera.lookAt(lookAt.current);
+    if (!initialized.current) { initialized.current = true; gl.domElement.dataset.ready = 'true'; }
+  });
+  return null;
+}
+
+function Computer(props: SceneProps) {
+  const device = { ...props, mode: 'about' as const };
+  return <group position={[-0.3, 0, -0.8]} onClick={event => { event.stopPropagation(); props.onSelectMode('about'); }}>
+    <Box size={[3.12, 2.38, 0.9]} position={[0, 1.5, 0]} color="#82cfc0" radius={0.16} />
+    <Box size={[2.8, 1.84, 0.06]} position={[0, 1.65, 0.48]} color="#344d50" radius={0.08} />
+    <Box size={[2.56, 1.64, 0.012]} position={[0, 1.65, 0.519]} color="#102a31" radius={0.025} />
+    <Screen {...device} position={[0, 1.65, 0.537]} factor={1.6}><ComputerScreen /></Screen>
+    <Box size={[0.62, 0.35, 0.6]} position={[0, 0.18, 0.05]} color="#467d78" />
+    <Box size={[1.65, 0.12, 1]} position={[0, 0.04, 0.12]} color="#5b9e92" />
+    <mesh position={[1.23, 0.62, 0.5]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.06, 0.06, 0.025, 24]} /><meshStandardMaterial color="#ffe698" emissive="#ffb454" emissiveIntensity={0.6} /></mesh>
+    {Array.from({ length: 5 }, (_, i) => <Box key={i} size={[0.03, 0.1, 0.025]} position={[-1.25 + i * 0.09, 0.63, 0.49]} color="#4c857d" radius={0.01} />)}
+    <DeviceLabel {...device} position={[0, 2.98, 0]} />
+  </group>;
+}
+
+function Keyboard({ onSelectMode }: SceneProps) {
+  return <group position={[-0.3, 0.08, 1.12]} onClick={event => { event.stopPropagation(); onSelectMode('about'); }}>
+    <Box size={[2.45, 0.14, 0.88]} color="#f8c5b7" radius={0.06} />
+    {[0, 1, 2, 3].map(row => Array.from({ length: 12 }, (_, col) => <Box key={`${row}-${col}`} size={[0.15, 0.04, 0.13]} position={[-1.05 + col * 0.19, 0.1, -0.27 + row * 0.18]} color={col === 0 ? '#ffa265' : row === 3 ? '#85c8b8' : '#f9e3d0'} radius={0.013} />))}
+    <Box size={[0.72, 0.04, 0.13]} position={[0, 0.1, 0.28]} color="#bca3d4" radius={0.015} />
+  </group>;
+}
+
+function Nintendo3DS(props: SceneProps) {
+  const [index, setIndex] = useState(0);
+  const [details, setDetails] = useState(false);
+  const device = { ...props, mode: 'projects' as const };
+  const change = (direction: number) => { setIndex(value => (value + direction + projects.length) % projects.length); setDetails(false); };
+  useEffect(() => {
+    if (props.activeMode !== 'projects') return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); change(event.key === 'ArrowLeft' ? -1 : 1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [props.activeMode]);
+  const project = projects[index];
+  return <group position={[-3.0, 0.12, 1.05]} rotation={[0, 0.18, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('projects'); }}>
+    <Box size={[2.05, 0.13, 1.12]} color="#e3af48" radius={0.085} />
+    <Box size={[1.97, 0.045, 1.06]} position={[0, 0.081, 0]} color="#ffe083" radius={0.045} />
+    <group position={[0, 0.14, -0.48]}>
+      <Box size={[2.05, 1.19, 0.13]} position={[0, 0.58, 0]} color="#efbd52" radius={0.08} />
+      <Box size={[1.75, 0.97, 0.015]} position={[0, 0.57, 0.077]} color="#333d43" radius={0.025} />
+      <Screen {...device} position={[0, 0.57, 0.091]} factor={1.47}><ProjectTopScreen project={project} index={index} /></Screen>
+      <mesh position={[0, 1.095, 0.075]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.025, 0.025, 0.012, 18]} /><meshStandardMaterial color="#354041" /></mesh>
+      {[-0.92, 0.92].map(x => [0, 1, 2].map(i => <mesh key={`${x}-${i}`} position={[x, 0.45 + i * 0.09, 0.074]}><sphereGeometry args={[0.015, 8, 8]} /><meshStandardMaterial color="#9d7830" /></mesh>))}
     </group>
-  );
+    <mesh position={[0, 0.1, -0.48]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.08, 0.08, 1.87, 32]} /><meshStandardMaterial color="#cf9b3c" metalness={0.3} /></mesh>
+    <Box size={[1.07, 0.016, 0.74]} position={[0, 0.113, 0.04]} color="#273739" radius={0.02} />
+    <Screen {...device} position={[0, 0.13, 0.04]} rotation={[-Math.PI / 2, 0, 0]} factor={1.08}><ProjectBottomScreen project={project} index={index} onChange={change} details={details} onToggleDetails={() => setDetails(value => !value)} /></Screen>
+    <Screen {...device} position={[-0.77, 0.12, 0.15]} rotation={[-Math.PI / 2, 0, 0]} factor={1.15}><div className="physical-dpad"><button aria-label="3DS previous project" title="Previous project" onClick={() => change(-1)}><ArrowLeft size={25} /></button><button aria-label="3DS next project" title="Next project" onClick={() => change(1)}><ArrowRight size={25} /></button></div></Screen>
+    <Screen {...device} position={[0.76, 0.12, 0.1]} rotation={[-Math.PI / 2, 0, 0]} factor={1.1}><div className="physical-ab"><a aria-label={`3DS open ${project.name}`} href={project.href} target="_blank" rel="noopener noreferrer" title={`Open ${project.name}`}>A</a><button aria-label="3DS project details" title="Project details" onClick={() => setDetails(value => !value)}>B</button></div></Screen>
+    <Box size={[0.16, 0.024, 0.045]} position={[0.67, 0.113, 0.47]} color="#bc8c31" radius={0.01} />
+    <DeviceLabel {...device} position={[0, 1.6, -0.48]} />
+  </group>;
 }
 
-function WorldLabel({
-  children,
-  position,
-  color,
-}: {
-  children: string;
-  position: [number, number, number];
-  color: string;
-}) {
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 72;
-    const context = canvas.getContext('2d');
-    if (!context) return null;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.font = '700 33px "Courier New", monospace';
-    context.fillStyle = color;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.lineWidth = 7;
-    context.strokeStyle = '#171220';
-    context.strokeText(children, canvas.width / 2, canvas.height / 2 + 1);
-    context.fillText(children, canvas.width / 2, canvas.height / 2 + 1);
-    const labelTexture = new THREE.CanvasTexture(canvas);
-    labelTexture.colorSpace = THREE.SRGBColorSpace;
-    return labelTexture;
-  }, [children, color]);
-
-  return (
-    <mesh position={position}>
-      <planeGeometry args={[1.16, 0.13]} />
-      <meshBasicMaterial depthTest={false} depthWrite={false} map={texture ?? undefined} transparent toneMapped={false} />
-    </mesh>
-  );
+function CassettePlayer(props: SceneProps) {
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const reels = useRef<THREE.Group>(null);
+  const device = { ...props, mode: 'hardware' as const };
+  const reducedMotion = useRef(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useFrame((_, delta) => { if (reels.current && playing && !reducedMotion.current) reels.current.rotation.z += delta * 0.6; });
+  return <group position={[2.55, 0.15, 1.12]} rotation={[-0.35, -0.2, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('hardware'); }}>
+    <Box size={[2.2, 1.2, 0.4]} position={[0, 0.48, 0]} color="#ee77a0" radius={0.13} />
+    <Box size={[1.87, 0.87, 0.035]} position={[0, 0.49, 0.225]} color="#253f36" radius={0.04} />
+    <Screen {...device} position={[0, 0.49, 0.25]} factor={1.42}><CassetteScreen index={index} playing={playing} onChange={direction => setIndex(value => (value + direction + hardwareProjects.length) % hardwareProjects.length)} onTogglePlay={() => setPlaying(value => !value)} /></Screen>
+    <group position={[-0.85, -0.06, 0.12]} ref={reels}><mesh><torusGeometry args={[0.063, 0.012, 10, 24]} /><meshStandardMaterial color="#ffd974" /></mesh><Box size={[0.1, 0.018, 0.01]} color="#ffda7a" radius={0.005} /></group>
+    <Box size={[0.78, 0.08, 0.25]} position={[0, 1.13, -0.03]} color="#ffc4d7" radius={0.035} />
+    <DeviceLabel {...device} position={[0, -0.27, 0.3]} />
+  </group>;
 }
 
-function useScreenTexture(activeMode: PortfolioMode) {
-  return useMemo(() => {
-    const detail = modeDetails[activeMode];
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 640;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return null;
-    }
-
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, '#0a1118');
-    gradient.addColorStop(0.62, '#101f27');
-    gradient.addColorStop(1, '#071014');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = detail.accent;
-    ctx.globalAlpha = 0.11;
-    for (let y = 0; y < canvas.height; y += 24) {
-      ctx.fillRect(0, y, canvas.width, 3);
-    }
-    ctx.globalAlpha = 1;
-
-    ctx.strokeStyle = detail.accent;
-    ctx.lineWidth = 8;
-    ctx.strokeRect(44, 44, canvas.width - 88, canvas.height - 88);
-
-    ctx.font = '700 76px "Courier New", monospace';
-    ctx.fillStyle = '#f4fbff';
-    ctx.fillText(detail.screenLines[0], 86, 172);
-
-    ctx.font = '600 48px "Courier New", monospace';
-    detail.screenLines.slice(1).forEach((line, index) => {
-      ctx.fillStyle = index === 0 ? detail.accent : '#b8f6ff';
-      ctx.fillText(`> ${line}`, 92, 294 + index * 86);
-    });
-
-    ctx.font = '500 28px "Courier New", monospace';
-    ctx.fillStyle = '#8aa5ac';
-    ctx.fillText('CLICK THE DESK OBJECTS TO SWITCH CHANNELS', 86, 560);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 8;
-    return texture;
-  }, [activeMode]);
-}
-
-function Monitor({
-  activeMode,
-  onSelectMode,
-}: {
-  activeMode: PortfolioMode;
-  onSelectMode: (mode: PortfolioMode) => void;
-}) {
-  const texture = useScreenTexture(activeMode);
-  const accent = modeDetails[activeMode].accent;
-
-  return (
-    <group position={[0, 1.25, 0]}>
-      <RoundedBox args={[2.95, 2.05, 0.52]} radius={0.14} smoothness={6}>
-        <meshStandardMaterial color="#b8bbb0" roughness={0.74} />
-      </RoundedBox>
-      <RoundedBox args={[2.43, 1.46, 0.07]} position={[0, 0.12, 0.3]} radius={0.08}>
-        <meshStandardMaterial color="#273234" roughness={0.9} />
-      </RoundedBox>
-      <Clickable mode="projects" onSelectMode={onSelectMode}>
-        <mesh position={[0, 0.12, 0.342]}>
-          <planeGeometry args={[2.22, 1.25]} />
-          <meshStandardMaterial
-            color="#ffffff"
-            emissive={accent}
-            emissiveIntensity={0.2}
-            map={texture ?? undefined}
-            roughness={0.35}
-            toneMapped={false}
-          />
-        </mesh>
-      </Clickable>
-      <RoundedBox args={[1.05, 0.28, 0.62]} position={[0, -1.2, -0.04]} radius={0.06}>
-        <meshStandardMaterial color="#a4a69d" roughness={0.78} />
-      </RoundedBox>
-      <RoundedBox args={[1.8, 0.18, 0.98]} position={[0, -1.5, 0]} radius={0.07}>
-        <meshStandardMaterial color="#7e8078" roughness={0.8} />
-      </RoundedBox>
-      <mesh position={[1.22, -0.72, 0.33]}>
-        <cylinderGeometry args={[0.065, 0.065, 0.025, 32]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.8} />
-      </mesh>
+function Turntable(props: SceneProps) {
+  const [index, setIndex] = useState(0);
+  const disc = useRef<THREE.Group>(null);
+  const reducedMotion = useRef(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const device = { ...props, mode: 'contact' as const };
+  useFrame((_, delta) => { if (disc.current && !reducedMotion.current) disc.current.rotation.y += delta * 0.45; });
+  return <group position={[3.15, 1.11, -1.15]} rotation={[0, -0.17, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('contact'); }}>
+    <Box size={[2.15, 0.28, 1.5]} color="#988bd0" radius={0.08} />
+    <group position={[-0.26, 0.19, -0.1]} ref={disc}>
+      <mesh castShadow><cylinderGeometry args={[0.58, 0.58, 0.045, 64]} /><meshStandardMaterial color="#252337" roughness={0.44} metalness={0.25} /></mesh>
+      {[0.28, 0.38, 0.48, 0.55].map(r => <mesh key={r} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]}><torusGeometry args={[r, 0.003, 8, 64]} /><meshStandardMaterial color="#655b7e" /></mesh>)}
+      <mesh><cylinderGeometry args={[0.16, 0.16, 0.056, 32]} /><meshStandardMaterial color="#ffb575" /></mesh>
+      <Box size={[0.15, 0.013, 0.025]} position={[0, 0.04, 0]} color="#56365d" radius={0.006} />
     </group>
-  );
+    <Box size={[0.055, 0.045, 0.85]} position={[0.69, 0.24, -0.14]} color="#d6c8e8" rotation={[0, -0.25, 0]} radius={0.01} metalness={0.6} />
+    <Box size={[1.96, 0.69, 0.12]} position={[0, 0.32, 0.74]} rotation={[-0.5, 0, 0]} color="#7660a6" radius={0.04} />
+    <Screen {...device} position={[0, 0.35, 0.807]} rotation={[-0.5, 0, 0]} factor={1.54}><ContactScreen index={index} onChange={direction => setIndex(value => (value + direction + socials.length) % socials.length)} /></Screen>
+    <DeviceLabel {...device} position={[0, 1.18, -0.08]} />
+  </group>;
 }
 
-function Keyboard({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => void }) {
-  const rows = [
-    { z: -0.02, count: 12, width: 0.13 },
-    { z: 0.17, count: 11, width: 0.14 },
-    { z: 0.36, count: 10, width: 0.15 },
-  ];
-
-  return (
-    <Clickable mode="about" onSelectMode={onSelectMode}>
-      <group position={[-0.1, 0.14, 1.55]} rotation={[-0.05, 0, 0]}>
-        <RoundedBox args={[2.4, 0.16, 0.84]} radius={0.08}>
-          <meshStandardMaterial color="#d7d1c0" roughness={0.86} />
-        </RoundedBox>
-        {rows.map((row, rowIndex) =>
-          Array.from({ length: row.count }).map((_, keyIndex) => (
-            <RoundedBox
-              args={[row.width, 0.045, 0.105]}
-              key={`${rowIndex}-${keyIndex}`}
-              position={[
-                (keyIndex - row.count / 2) * 0.18 + 0.09,
-                0.1,
-                row.z,
-              ]}
-              radius={0.015}
-            >
-              <meshStandardMaterial color={rowIndex === 1 ? '#ebe4d4' : '#c6c0b1'} />
-            </RoundedBox>
-          )),
-        )}
-        <RoundedBox args={[1.05, 0.045, 0.105]} position={[0, 0.1, 0.55]} radius={0.015}>
-          <meshStandardMaterial color="#b8b1a2" />
-        </RoundedBox>
-        <WorldLabel color="#67e8f9" position={[0, 0.26, 0.9]}>KEYBOARD / ABOUT</WorldLabel>
-      </group>
-    </Clickable>
-  );
+function Plant({ position, scale = 1 }: { position: Vector; scale?: number }) {
+  return <group position={position} scale={scale}>
+    <mesh castShadow><cylinderGeometry args={[0.18, 0.13, 0.33, 24]} /><meshStandardMaterial color="#ffb763" /></mesh>
+    {Array.from({ length: 7 }, (_, i) => <mesh key={i} position={[Math.sin(i * 2) * 0.15, 0.26 + i % 3 * 0.1, Math.cos(i * 2) * 0.12]} rotation={[i * 0.22, i, 0.4]} scale={[0.07, 0.22, 0.09]} castShadow><sphereGeometry args={[1, 12, 12]} /><meshStandardMaterial color={i % 2 ? '#387b57' : '#8fbb63'} /></mesh>)}
+  </group>;
 }
 
-function Cassette({
-  activeMode,
-  onSelectMode,
-}: {
-  activeMode: PortfolioMode;
-  onSelectMode: (mode: PortfolioMode) => void;
-}) {
-  const leftReel = useRef<THREE.Mesh>(null);
-  const rightReel = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    const spin = state.clock.elapsedTime * 1.65;
-    if (leftReel.current) {
-      leftReel.current.rotation.z = spin;
-    }
-    if (rightReel.current) {
-      rightReel.current.rotation.z = -spin;
-    }
-  });
-
-  return (
-    <Clickable mode="hardware" onSelectMode={onSelectMode}>
-      <group position={[1.92, 0.2, 1.07]} rotation={[0, -0.27, 0]}>
-        <RoundedBox args={[1.16, 0.24, 0.72]} radius={0.08}>
-          <meshStandardMaterial color="#c94b8c" roughness={0.64} metalness={0.08} />
-        </RoundedBox>
-        <RoundedBox args={[0.88, 0.03, 0.32]} position={[0, 0.14, 0]} radius={0.045}>
-          <meshStandardMaterial color="#fff1bd" roughness={0.6} />
-        </RoundedBox>
-        {[-0.28, 0.28].map((x, index) => (
-          <mesh
-            key={x}
-            position={[x, 0.17, 0]}
-            ref={index === 0 ? leftReel : rightReel}
-            rotation={[Math.PI / 2, 0, 0]}
-          >
-            <torusGeometry args={[0.13, 0.018, 12, 36]} />
-            <meshStandardMaterial
-              color={activeMode === 'hardware' ? '#a3e635' : '#94a3a5'}
-              emissive={activeMode === 'hardware' ? '#608f1a' : '#000000'}
-              emissiveIntensity={0.25}
-            />
-          </mesh>
-        ))}
-        <RoundedBox args={[0.4, 0.035, 0.09]} position={[0, 0.17, -0.22]} radius={0.018}>
-          <meshStandardMaterial color="#f97316" emissive="#5f2103" emissiveIntensity={0.16} />
-        </RoundedBox>
-        <WorldLabel color="#f0abfc" position={[0, 0.36, 0.55]}>CASSETTE DECK / HARDWARE</WorldLabel>
-      </group>
-    </Clickable>
-  );
+function Room() {
+  return <>
+    <mesh position={[0, -1.5, 0]} receiveShadow><boxGeometry args={[20, 0.1, 20]} /><meshStandardMaterial color="#777b87" /></mesh>
+    {Array.from({ length: 12 }, (_, row) => Array.from({ length: 12 }, (_, col) => <mesh key={`${row}-${col}`} position={[col * 1.25 - 7.5, -1.439, row * 1.25 - 6]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[1.25, 1.25]} /><meshStandardMaterial color={(row + col) % 2 ? '#afc9ba' : '#d9e7d9'} /></mesh>))}
+    <Box size={[16, 8, 0.12]} position={[0, 2.5, -3.25]} color="#c5b6ce" radius={0.01} />
+    <Box size={[0.12, 8, 13]} position={[-6, 2.5, 2.9]} color="#b6cbc8" radius={0.01} />
+    <Box size={[16, 0.18, 0.08]} position={[0, -0.95, -3.14]} color="#8c839f" radius={0.01} />
+    <Box size={[9.8, 0.18, 4.3]} position={[0, -0.06, 0.2]} color="#f2bf8f" radius={0.08} />
+    <Box size={[9.62, 0.055, 4.12]} position={[0, 0.045, 0.2]} color="#ffce9d" radius={0.07} />
+    {[-4.3, 4.3].map(x => <Box key={x} size={[0.16, 1.4, 0.16]} position={[x, -0.83, 1.65]} color="#b68458" />)}
+    <Box size={[2.4, 0.11, 1.66]} position={[3.15, 0.89, -1.15]} color="#c99c88" />
+    {[2.16, 4.14].map(x => <Box key={x} size={[0.11, 0.84, 1.48]} position={[x, 0.48, -1.15]} color="#c99c88" radius={0.02} />)}
+    <Box size={[2.9, 0.028, 1.22]} position={[-0.3, 0.09, 1.12]} color="#b18ed1" radius={0.05} />
+    <Plant position={[-4.25, 0.28, -1.16]} scale={1.35} />
+    <Box size={[2.45, 0.13, 0.49]} position={[-3.43, 2.8, -2.87]} color="#e8c6b2" />
+    {['#df7994', '#799ac1', '#e8b65e', '#79bfa2'].map((color, i) => <Box key={color} size={[0.22, 0.56 + i % 2 * 0.13, 0.31]} position={[-4.22 + i * 0.28, 3.13, -2.84]} color={color} radius={0.014} />)}
+    <Plant position={[-2.68, 3.0, -2.83]} scale={0.8} />
+    <Box size={[1.7, 1.22, 0.08]} position={[2.88, 2.9, -3.12]} color="#ffe2a8" radius={0.02} />
+    <Box size={[1.57, 1.08, 0.015]} position={[2.88, 2.9, -3.065]} color="#e27f79" radius={0.01} />
+    {[0, 1, 2, 3, 4].map(i => <Box key={i} size={[0.92 - i * 0.1, 0.044, 0.016]} position={[2.88, 3.13 - i * 0.12, -3.049]} color={i % 2 ? '#ffc789' : '#f8ddb4'} radius={0.005} />)}
+    <group position={[4.51, 0.35, -1.36]}>
+      <mesh castShadow><cylinderGeometry args={[0.2, 0.16, 0.48, 24]} /><meshStandardMaterial color="#71c2c5" /></mesh>
+      {[0, 1, 2].map(i => <mesh key={i} position={[-0.1 + i * 0.09, 0.41, 0]} rotation={[0, 0, -0.16 + i * 0.16]} castShadow><cylinderGeometry args={[0.022, 0.022, 0.55, 10]} /><meshStandardMaterial color={['#ffa371', '#eec857', '#bf81bd'][i]} /></mesh>)}
+    </group>
+    <Box size={[0.46, 0.3, 0.66]} position={[1.65, 0.3, -1.12]} color="#ffc879" radius={0.04} />
+    {[0, 1, 2, 3].map(i => <Box key={i} size={[0.019, 0.19, 0.012]} position={[1.49 + i * 0.1, 0.33, -0.78]} color="#bc8549" radius={0.006} />)}
+  </>;
 }
 
-function GameBoy({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => void }) {
-  return (
-    <Clickable mode="projects" onSelectMode={onSelectMode}>
-      <group position={[-1.95, 0.48, 0.92]} rotation={[0.07, 0.3, -0.08]}>
-        <RoundedBox args={[0.72, 0.98, 0.16]} radius={0.09}>
-          <meshStandardMaterial color="#f2c94c" roughness={0.56} />
-        </RoundedBox>
-        <RoundedBox args={[0.5, 0.34, 0.025]} position={[0, 0.15, 0.095]} radius={0.025}>
-          <meshStandardMaterial color="#263843" emissive="#387681" emissiveIntensity={0.24} />
-        </RoundedBox>
-        <mesh position={[-0.17, -0.25, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.065, 0.065, 0.026, 24]} />
-          <meshStandardMaterial color="#d33c74" />
-        </mesh>
-        <mesh position={[0.18, -0.24, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.052, 0.052, 0.026, 24]} />
-          <meshStandardMaterial color="#d33c74" />
-        </mesh>
-        <WorldLabel color="#f6d365" position={[0, -0.4, 0.2]}>GAME BOY / PROJECTS</WorldLabel>
-      </group>
-    </Clickable>
-  );
+function SceneContent(props: SceneProps) {
+  return <>
+    <color attach="background" args={['#c4b7cc']} />
+    <ambientLight intensity={1.05} />
+    <hemisphereLight args={['#fff4d9', '#866da3', 1.15]} />
+    <directionalLight castShadow intensity={2.7} position={[-3, 7, 5]} color="#fff0d4" shadow-mapSize={[1024, 1024]} shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6} shadow-normalBias={0.03} />
+    <pointLight position={[4, 4, 1]} color="#ffb0b9" intensity={12} />
+    <CameraRig activeMode={props.activeMode} />
+    <Room />
+    <Computer {...props} />
+    <Keyboard {...props} />
+    <Nintendo3DS {...props} />
+    <CassettePlayer {...props} />
+    <Turntable {...props} />
+  </>;
 }
 
-function Vinyl({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => void }) {
-  const record = useRef<THREE.Group>(null);
-  useFrame((state) => {
-    if (record.current) record.current.rotation.y = state.clock.elapsedTime * 0.38;
-  });
-
-  return (
-    <Clickable mode="contact" onSelectMode={onSelectMode}>
-      <group position={[2.05, 0.82, -0.25]} rotation={[0, 0.1, 0]}>
-        <group ref={record} rotation={[Math.PI / 2, 0, 0]}>
-          <mesh><cylinderGeometry args={[0.42, 0.42, 0.035, 48]} /><meshStandardMaterial color="#241f3f" roughness={0.38} metalness={0.3} /></mesh>
-          <mesh position={[0, 0.024, 0]}><cylinderGeometry args={[0.12, 0.12, 0.04, 32]} /><meshStandardMaterial color="#8e4ec6" emissive="#4a1a78" emissiveIntensity={0.35} /></mesh>
-        </group>
-        <WorldLabel color="#d6a6ff" position={[0, 0.55, 0.12]}>VINYL / CONTACT</WorldLabel>
-      </group>
-    </Clickable>
-  );
-}
-
-function DeskSceneContent({
-  activeMode,
-  onSelectMode,
-}: {
-  activeMode: PortfolioMode;
-  onSelectMode: (mode: PortfolioMode) => void;
-}) {
-  const group = useRef<THREE.Group>(null);
-
-  useFrame((state) => {
-    if (group.current) {
-      group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.32) * 0.055;
-    }
-  });
-
-  return (
-    <>
-      <PerspectiveCamera makeDefault position={[0, 2.85, 6.2]} fov={42} />
-      <color attach="background" args={['#171220']} />
-      <ambientLight intensity={0.72} />
-      <directionalLight color="#fff6e8" intensity={2.2} position={[3.5, 5.5, 4.5]} />
-      <pointLight color="#ff75b5" intensity={1.9} position={[-2.7, 2.2, 1.4]} />
-      <pointLight color="#67e8f9" intensity={1.7} position={[2.4, 1.5, 2]} />
-      <pointLight color={modeDetails[activeMode].accent} intensity={1.1} position={[0, 2.4, -1]} />
-      <Environment preset="city" />
-      <Float floatIntensity={0.25} rotationIntensity={0.12} speed={1.2}>
-        <group ref={group}>
-          <mesh position={[0, -0.02, 0.36]} receiveShadow>
-            <boxGeometry args={[5.3, 0.16, 3.15]} />
-            <meshStandardMaterial color="#604636" roughness={0.76} />
-          </mesh>
-          <Monitor activeMode={activeMode} onSelectMode={onSelectMode} />
-          <Keyboard onSelectMode={onSelectMode} />
-          <Cassette activeMode={activeMode} onSelectMode={onSelectMode} />
-          <GameBoy onSelectMode={onSelectMode} />
-          <Vinyl onSelectMode={onSelectMode} />
-          <mesh position={[2.45, 0.37, -0.78]} rotation={[0.16, 0.2, -0.12]}>
-            <cylinderGeometry args={[0.14, 0.14, 0.82, 32]} />
-            <meshStandardMaterial color="#48d4d9" roughness={0.42} metalness={0.2} />
-          </mesh>
-          <mesh position={[-2.42, 0.38, -0.58]} rotation={[0.18, 0.3, 0.08]}>
-            <torusGeometry args={[0.25, 0.035, 16, 40]} />
-            <meshStandardMaterial color="#ff9f3e" roughness={0.48} />
-          </mesh>
-        </group>
-      </Float>
-      <ContactShadows blur={2.2} far={8} opacity={0.46} position={[0, -0.18, 0]} />
-      <OrbitControls
-        enablePan={false}
-        enableZoom={false}
-        maxPolarAngle={Math.PI / 2.12}
-        minPolarAngle={Math.PI / 3.15}
-      />
-    </>
-  );
-}
-
-export function RetroDeskScene({
-  activeMode,
-  onSelectMode,
-}: RetroDeskSceneProps) {
-  return (
-    <Canvas
-      shadows
-      dpr={[1, 1.8]}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
-    >
-      <DeskSceneContent activeMode={activeMode} onSelectMode={onSelectMode} />
-    </Canvas>
-  );
+export function RetroDeskScene(props: SceneProps) {
+  return <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 4, 10], fov: 42, near: 0.1, far: 80 }} gl={{ antialias: true, powerPreference: 'high-performance' }}><Suspense fallback={null}><SceneContent {...props} /></Suspense></Canvas>;
 }
