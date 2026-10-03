@@ -19,13 +19,13 @@ function Box({ size, position = [0, 0, 0], color, radius = 0.05, rotation, metal
 }
 
 function DeviceLabel({ mode, position, activeMode, onSelectMode }: DeviceProps & { position: Vector }) {
-  const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene'));
+  const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene')!);
   const detail = modeDetails[mode];
   return <Html portal={portal} position={position} center zIndexRange={[110, 100]} style={{ display: activeMode === null ? 'block' : 'none' }}><button className="object-label" style={{ '--object-color': detail.accent } as React.CSSProperties} onClick={() => onSelectMode(mode)}><span className="label-dot" />{detail.label}<span className="label-device">{detail.device}</span></button></Html>;
 }
 
 function Screen({ children, mode, activeMode, onSelectMode, position, rotation, factor }: DeviceProps & { children: React.ReactNode; position: Vector; rotation?: Vector; factor: number }) {
-  const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene'));
+  const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene')!);
   return <Html portal={portal} transform position={position} rotation={rotation} distanceFactor={factor} zIndexRange={[90, 0]} style={{ display: activeMode === null || activeMode === mode ? 'block' : 'none' }}>
     <div className={`device-surface ${activeMode === mode ? 'device-focused' : ''}`} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); if (activeMode !== mode) onSelectMode(mode); }}>{children}</div>
   </Html>;
