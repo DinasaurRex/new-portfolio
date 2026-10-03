@@ -45,6 +45,43 @@ function Clickable({ children, mode, onSelectMode }: ClickableProps) {
   );
 }
 
+function WorldLabel({
+  children,
+  position,
+  color,
+}: {
+  children: string;
+  position: [number, number, number];
+  color: string;
+}) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 72;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = '700 33px "Courier New", monospace';
+    context.fillStyle = color;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.lineWidth = 7;
+    context.strokeStyle = '#171220';
+    context.strokeText(children, canvas.width / 2, canvas.height / 2 + 1);
+    context.fillText(children, canvas.width / 2, canvas.height / 2 + 1);
+    const labelTexture = new THREE.CanvasTexture(canvas);
+    labelTexture.colorSpace = THREE.SRGBColorSpace;
+    return labelTexture;
+  }, [children, color]);
+
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[1.16, 0.13]} />
+      <meshBasicMaterial depthTest={false} depthWrite={false} map={texture ?? undefined} transparent toneMapped={false} />
+    </mesh>
+  );
+}
+
 function useScreenTexture(activeMode: PortfolioMode) {
   return useMemo(() => {
     const detail = modeDetails[activeMode];
@@ -173,6 +210,7 @@ function Keyboard({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => voi
         <RoundedBox args={[1.05, 0.045, 0.105]} position={[0, 0.1, 0.55]} radius={0.015}>
           <meshStandardMaterial color="#b8b1a2" />
         </RoundedBox>
+        <WorldLabel color="#67e8f9" position={[0, 0.26, 0.9]}>KEYBOARD / ABOUT</WorldLabel>
       </group>
     </Clickable>
   );
@@ -201,16 +239,16 @@ function Cassette({
   return (
     <Clickable mode="hardware" onSelectMode={onSelectMode}>
       <group position={[1.92, 0.2, 1.07]} rotation={[0, -0.27, 0]}>
-        <RoundedBox args={[1.16, 0.18, 0.72]} radius={0.08}>
-          <meshStandardMaterial color="#272325" roughness={0.72} />
+        <RoundedBox args={[1.16, 0.24, 0.72]} radius={0.08}>
+          <meshStandardMaterial color="#c94b8c" roughness={0.64} metalness={0.08} />
         </RoundedBox>
-        <RoundedBox args={[0.88, 0.03, 0.32]} position={[0, 0.1, 0]} radius={0.045}>
-          <meshStandardMaterial color="#f5ede0" roughness={0.6} />
+        <RoundedBox args={[0.88, 0.03, 0.32]} position={[0, 0.14, 0]} radius={0.045}>
+          <meshStandardMaterial color="#fff1bd" roughness={0.6} />
         </RoundedBox>
         {[-0.28, 0.28].map((x, index) => (
           <mesh
             key={x}
-            position={[x, 0.13, 0]}
+            position={[x, 0.17, 0]}
             ref={index === 0 ? leftReel : rightReel}
             rotation={[Math.PI / 2, 0, 0]}
           >
@@ -222,31 +260,53 @@ function Cassette({
             />
           </mesh>
         ))}
-        <RoundedBox args={[0.4, 0.035, 0.09]} position={[0, 0.13, -0.22]} radius={0.018}>
+        <RoundedBox args={[0.4, 0.035, 0.09]} position={[0, 0.17, -0.22]} radius={0.018}>
           <meshStandardMaterial color="#f97316" emissive="#5f2103" emissiveIntensity={0.16} />
         </RoundedBox>
+        <WorldLabel color="#f0abfc" position={[0, 0.36, 0.55]}>CASSETTE DECK / HARDWARE</WorldLabel>
       </group>
     </Clickable>
   );
 }
 
-function DiskStack({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => void }) {
+function GameBoy({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => void }) {
+  return (
+    <Clickable mode="projects" onSelectMode={onSelectMode}>
+      <group position={[-1.95, 0.48, 0.92]} rotation={[0.07, 0.3, -0.08]}>
+        <RoundedBox args={[0.72, 0.98, 0.16]} radius={0.09}>
+          <meshStandardMaterial color="#f2c94c" roughness={0.56} />
+        </RoundedBox>
+        <RoundedBox args={[0.5, 0.34, 0.025]} position={[0, 0.15, 0.095]} radius={0.025}>
+          <meshStandardMaterial color="#263843" emissive="#387681" emissiveIntensity={0.24} />
+        </RoundedBox>
+        <mesh position={[-0.17, -0.25, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.065, 0.065, 0.026, 24]} />
+          <meshStandardMaterial color="#d33c74" />
+        </mesh>
+        <mesh position={[0.18, -0.24, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.052, 0.052, 0.026, 24]} />
+          <meshStandardMaterial color="#d33c74" />
+        </mesh>
+        <WorldLabel color="#f6d365" position={[0, -0.4, 0.2]}>GAME BOY / PROJECTS</WorldLabel>
+      </group>
+    </Clickable>
+  );
+}
+
+function Vinyl({ onSelectMode }: { onSelectMode: (mode: PortfolioMode) => void }) {
+  const record = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (record.current) record.current.rotation.y = state.clock.elapsedTime * 0.38;
+  });
+
   return (
     <Clickable mode="contact" onSelectMode={onSelectMode}>
-      <group position={[-1.95, 0.22, 1.08]} rotation={[0, 0.34, 0]}>
-        {[0, 0.08, 0.16].map((height, index) => (
-          <RoundedBox
-            args={[0.74, 0.08, 0.74]}
-            key={height}
-            position={[0, height, 0]}
-            radius={0.035}
-          >
-            <meshStandardMaterial color={index === 2 ? '#86efac' : '#cdd2cf'} roughness={0.68} />
-          </RoundedBox>
-        ))}
-        <RoundedBox args={[0.46, 0.02, 0.16]} position={[0, 0.23, -0.16]} radius={0.012}>
-          <meshStandardMaterial color="#1e293b" />
-        </RoundedBox>
+      <group position={[2.05, 0.82, -0.25]} rotation={[0, 0.1, 0]}>
+        <group ref={record} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh><cylinderGeometry args={[0.42, 0.42, 0.035, 48]} /><meshStandardMaterial color="#241f3f" roughness={0.38} metalness={0.3} /></mesh>
+          <mesh position={[0, 0.024, 0]}><cylinderGeometry args={[0.12, 0.12, 0.04, 32]} /><meshStandardMaterial color="#8e4ec6" emissive="#4a1a78" emissiveIntensity={0.35} /></mesh>
+        </group>
+        <WorldLabel color="#d6a6ff" position={[0, 0.55, 0.12]}>VINYL / CONTACT</WorldLabel>
       </group>
     </Clickable>
   );
@@ -270,28 +330,31 @@ function DeskSceneContent({
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 2.85, 6.2]} fov={42} />
-      <color attach="background" args={['#111514']} />
-      <ambientLight intensity={0.55} />
+      <color attach="background" args={['#171220']} />
+      <ambientLight intensity={0.72} />
       <directionalLight color="#fff6e8" intensity={2.2} position={[3.5, 5.5, 4.5]} />
-      <pointLight color={modeDetails[activeMode].accent} intensity={2.3} position={[-2.3, 1.5, 2]} />
+      <pointLight color="#ff75b5" intensity={1.9} position={[-2.7, 2.2, 1.4]} />
+      <pointLight color="#67e8f9" intensity={1.7} position={[2.4, 1.5, 2]} />
+      <pointLight color={modeDetails[activeMode].accent} intensity={1.1} position={[0, 2.4, -1]} />
       <Environment preset="city" />
       <Float floatIntensity={0.25} rotationIntensity={0.12} speed={1.2}>
         <group ref={group}>
           <mesh position={[0, -0.02, 0.36]} receiveShadow>
             <boxGeometry args={[5.3, 0.16, 3.15]} />
-            <meshStandardMaterial color="#514337" roughness={0.82} />
+            <meshStandardMaterial color="#604636" roughness={0.76} />
           </mesh>
           <Monitor activeMode={activeMode} onSelectMode={onSelectMode} />
           <Keyboard onSelectMode={onSelectMode} />
           <Cassette activeMode={activeMode} onSelectMode={onSelectMode} />
-          <DiskStack onSelectMode={onSelectMode} />
+          <GameBoy onSelectMode={onSelectMode} />
+          <Vinyl onSelectMode={onSelectMode} />
           <mesh position={[2.45, 0.37, -0.78]} rotation={[0.16, 0.2, -0.12]}>
             <cylinderGeometry args={[0.14, 0.14, 0.82, 32]} />
-            <meshStandardMaterial color="#67e8f9" roughness={0.42} metalness={0.2} />
+            <meshStandardMaterial color="#48d4d9" roughness={0.42} metalness={0.2} />
           </mesh>
           <mesh position={[-2.42, 0.38, -0.58]} rotation={[0.18, 0.3, 0.08]}>
             <torusGeometry args={[0.25, 0.035, 16, 40]} />
-            <meshStandardMaterial color="#f59e0b" roughness={0.48} />
+            <meshStandardMaterial color="#ff9f3e" roughness={0.48} />
           </mesh>
         </group>
       </Float>

@@ -26,38 +26,34 @@ export const modeDetails: Record<
 > = {
   about: {
     label: 'About',
-    kicker: 'Electrical engineering + code',
-    title: 'I build working systems with a little personality.',
-    body:
-      'I am Dina Saab, an electrical engineering student at McGill who likes turning fuzzy ideas into practical tools, robots, automations, and full-stack products people can actually use.',
-    screenLines: ['DINA.EXE', 'MCGILL E.E.', 'WEB + HARDWARE'],
+    kicker: 'Dina Saab',
+    title: 'Dina Saab',
+    body: 'Electrical engineering, web, and physical computing.',
+    screenLines: ['DINA.SAAB', 'ELECTRICAL ENGINEERING', 'WEB + HARDWARE'],
     accent: '#67e8f9',
   },
   projects: {
     label: 'Projects',
-    kicker: 'Selected builds',
-    title: 'Useful websites, student tools, and weird little machines.',
-    body:
-      'My work moves between polished web apps and physical prototypes: BuildWith for student opportunities, McGillTrack for academic planning, and tiny hardware systems that make ideas tangible.',
-    screenLines: ['PROJECTS', 'BUILDWITH', 'MCGILLTRACK'],
+    kicker: 'Projects',
+    title: 'Projects',
+    body: 'BuildWith, Trakkit, and more.',
+    screenLines: ['PROJECTS', 'BUILDWITH', 'TRAKKIT'],
     accent: '#f97316',
   },
   hardware: {
     label: 'Hardware',
-    kicker: 'Embedded systems shelf',
-    title: 'Robots, gardens, sensors, motors, and microcontrollers.',
-    body:
-      'I am drawn to the moment software leaves the screen: ESP32 control loops, Arduino sensing, motor drivers, CAD assemblies, and interfaces that make machines feel approachable.',
-    screenLines: ['ESP32 ONLINE', 'ARDUINO I/O', 'MOTOR READY'],
+    kicker: 'Hardware',
+    title: 'Hardware',
+    body: 'Robots, gardens, sensors, motors, and microcontrollers.',
+    screenLines: ['HENRY JR.', 'AUTOMATED GARDEN', 'ESP32 + ARDUINO'],
     accent: '#a3e635',
   },
   contact: {
     label: 'Contact',
-    kicker: 'Open channel',
-    title: 'Have an idea that needs both circuits and a UI?',
-    body:
-      'I am happiest around ambitious, useful projects: education tools, hardware prototypes, practical dashboards, and anything that rewards careful engineering.',
-    screenLines: ['MAIL READY', 'GITHUB SYNC', 'LINKEDIN'],
+    kicker: 'Contact',
+    title: 'Contact',
+    body: 'Email, GitHub, LinkedIn.',
+    screenLines: ['DINA07.SAAB@GMAIL.COM', 'GITHUB', 'LINKEDIN'],
     accent: '#f0abfc',
   },
 };
