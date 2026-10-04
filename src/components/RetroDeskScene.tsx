@@ -5,8 +5,10 @@ import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Home } from 'lucide-reac
 import * as THREE from 'three';
 import { hardwareProjects, modeDetails, PortfolioMode, projects, socials } from '../portfolioData';
 import { CassetteScreen, ComputerScreen, ContactScreen, ProjectBottomScreen, ProjectTopScreen } from './DeviceScreens';
+import { WallPrint, PlushBear, PlushPenguin, WoodFloor } from './RoomDecorations';
+import { CozyRoom } from './CozyRoom';
 
-type SceneProps = { activeMode: PortfolioMode | null; onSelectMode: (mode: PortfolioMode | null) => void };
+type SceneProps = { activeMode: PortfolioMode | null; atDesk: boolean; onSelectMode: (mode: PortfolioMode | null) => void };
 type DeviceProps = SceneProps & { mode: PortfolioMode };
 type Vector = [number, number, number];
 
@@ -45,7 +47,7 @@ function Screen({ children, mode, activeMode, onSelectMode, position, rotation, 
   </Html>;
 }
 
-function CameraRig({ activeMode }: { activeMode: PortfolioMode | null }) {
+function CameraRig({ activeMode, atDesk }: { activeMode: PortfolioMode | null; atDesk: boolean }) {
   const { camera, size, gl } = useThree();
   const lookAt = useRef(new THREE.Vector3(0, 1, 0));
   const initialized = useRef(false);
@@ -53,13 +55,14 @@ function CameraRig({ activeMode }: { activeMode: PortfolioMode | null }) {
 
   useFrame((state, delta) => {
     const aspect = size.width / size.height;
-    const target = new THREE.Vector3(...(activeMode ? locations[activeMode] : [0, 1, 0] as Vector));
-    const height = activeMode === 'about' ? 2.9 / Math.max(0.4, 1 - 140 / size.height) : activeMode === 'projects' ? 2.65 / Math.max(0.4, 1 - 140 / size.height) : activeMode ? 2.3 : 5.4;
-    const width = activeMode === 'about' ? (aspect < 0.8 ? 3.2 : 4.0) : activeMode === 'projects' ? (aspect < 0.8 ? 2.6 : 3.1) : activeMode ? (aspect < 0.8 ? 2.45 : 2.75) : 10.4;
+    const overview = !atDesk && activeMode === null;
+    const target = new THREE.Vector3(...(activeMode ? locations[activeMode] : overview ? [0, 0.6, 0.15] as Vector : [0, 1, 0] as Vector));
+    const height = activeMode === 'about' ? 2.9 / Math.max(0.4, 1 - 140 / size.height) : activeMode === 'projects' ? 2.65 / Math.max(0.4, 1 - 140 / size.height) : activeMode ? 2.3 : overview ? 6.5 : 5.4;
+    const width = activeMode === 'about' ? (aspect < 0.8 ? 3.2 : 4.0) : activeMode === 'projects' ? (aspect < 0.8 ? 2.6 : 3.1) : activeMode ? (aspect < 0.8 ? 2.45 : 2.75) : overview ? (aspect < 0.8 ? 12.8 : 14.3) : 10.4;
     // Match close-up distance to physical scale so smaller devices retain readable screens.
     const distance = Math.max(height / (2 * Math.tan(THREE.MathUtils.degToRad(21))), width / (2 * Math.tan(THREE.MathUtils.degToRad(21)) * aspect)) * (activeMode ? deviceScales[activeMode] : 1);
-    const slope = activeMode === 'projects' ? 0.78 : activeMode === 'hardware' ? Math.tan(-cassetteTilt) : activeMode === 'contact' ? 0.72 : activeMode === 'about' ? 0.34 : 0.28;
-    const yaw = activeMode === 'projects' ? 0.3 : activeMode === 'hardware' ? cassetteYaw : activeMode === 'contact' ? -0.17 : 0;
+    const slope = activeMode === 'projects' ? 0.78 : activeMode === 'hardware' ? Math.tan(-cassetteTilt) : activeMode === 'contact' ? 0.72 : activeMode === 'about' ? 0.34 : overview ? 0.4 : 0.28;
+    const yaw = activeMode === 'projects' ? 0.3 : activeMode === 'hardware' ? cassetteYaw : activeMode === 'contact' ? -0.17 : overview ? -0.3 : 0;
     const destination = target.clone().add(new THREE.Vector3(Math.sin(yaw), slope, Math.cos(yaw)).normalize().multiplyScalar(distance));
     const alpha = !initialized.current || reducedMotion.current ? 1 : 1 - Math.exp(-delta * 5);
     camera.position.lerp(destination, alpha);
@@ -244,13 +247,10 @@ function Bookshelf() {
   </group>;
 }
 
-function Room() {
-  return <>
-    <mesh position={[0, -1.5, 0]} receiveShadow><boxGeometry args={[20, 0.1, 20]} /><meshStandardMaterial color="#777b87" /></mesh>
-    {Array.from({ length: 12 }, (_, row) => Array.from({ length: 12 }, (_, col) => <mesh key={`${row}-${col}`} position={[col * 1.25 - 7.5, -1.439, row * 1.25 - 6]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[1.25, 1.25]} /><meshStandardMaterial color={(row + col) % 2 ? '#afc9ba' : '#d9e7d9'} /></mesh>))}
-    <Box size={[16, 8, 0.12]} position={[0, 2.5, -3.25]} color="#c5b6ce" radius={0.01} />
-    <Box size={[0.12, 8, 13]} position={[-6, 2.5, 2.9]} color="#b6cbc8" radius={0.01} />
-    <Box size={[16, 0.18, 0.08]} position={[0, -0.95, -3.14]} color="#8c839f" radius={0.01} />
+function Room({ onEnterDesk }: { onEnterDesk: () => void }) {
+  return <group onClick={event => { event.stopPropagation(); onEnterDesk(); }}>
+    <WoodFloor />
+    <CozyRoom />
     <Box size={[9.8, 0.18, 4.3]} position={[0, -0.06, 0.2]} color="#f2bf8f" radius={0.08} />
     <Box size={[9.62, 0.055, 4.12]} position={[0, 0.045, 0.2]} color="#ffce9d" radius={0.07} />
     {[-4.3, 4.3].map(x => <Box key={x} size={[0.16, 1.4, 0.16]} position={[x, -0.83, 1.65]} color="#b68458" />)}
@@ -258,25 +258,27 @@ function Room() {
     {[2.16, 4.14].map(x => <Box key={x} size={[0.11, 0.84, 1.48]} position={[x, 0.48, -1.15]} color="#c99c88" radius={0.02} />)}
     <Box size={[2.9, 0.028, 1.22]} position={[-0.3, 0.09, 1.12]} color="#b18ed1" radius={0.05} />
     <Bookshelf />
-    <Box size={[1.7, 1.22, 0.08]} position={[2.88, 2.9, -3.12]} color="#ffe2a8" radius={0.02} />
-    <Box size={[1.57, 1.08, 0.015]} position={[2.88, 2.9, -3.065]} color="#e27f79" radius={0.01} />
-    {[0, 1, 2, 3, 4].map(i => <Box key={i} size={[0.92 - i * 0.1, 0.044, 0.016]} position={[2.88, 3.13 - i * 0.12, -3.049]} color={i % 2 ? '#ffc789' : '#f8ddb4'} radius={0.005} />)}
+    <WallPrint />
     <Box size={[0.46, 0.3, 0.66]} position={[1.65, 0.3, -1.12]} color="#ffc879" radius={0.04} />
     {[0, 1, 2, 3].map(i => <Box key={i} size={[0.019, 0.19, 0.012]} position={[1.49 + i * 0.1, 0.33, -0.78]} color="#bc8549" radius={0.006} />)}
-  </>;
+  </group>;
 }
 
 function SceneContent(props: SceneProps) {
+  const sunTarget = useMemo(() => { const target = new THREE.Object3D(); target.position.set(-0.3, 0, 0.8); return target; }, []);
   return <>
-    <color attach="background" args={['#c4b7cc']} />
-    <ambientLight intensity={1.05} />
-    <hemisphereLight args={['#fff4d9', '#866da3', 1.15]} />
-    <directionalLight castShadow intensity={2.7} position={[-3, 7, 5]} color="#fff0d4" shadow-mapSize={[1024, 1024]} shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6} shadow-normalBias={0.03} />
-    <pointLight position={[4, 4, 1]} color="#ffb0b9" intensity={12} />
-    <CameraRig activeMode={props.activeMode} />
-    <Room />
+    <color attach="background" args={['#f3c6d9']} />
+    <ambientLight intensity={1.05} color="#ffffff" />
+    <hemisphereLight args={['#fff9ed', '#b4bdc8', 1.15]} />
+    <primitive object={sunTarget} />
+    <directionalLight target={sunTarget} castShadow intensity={1.4} position={[9, 5.2, -0.5]} color="#fff7e9" shadow-mapSize={[2048, 2048]} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} shadow-radius={3} shadow-normalBias={0.025} />
+    <directionalLight castShadow intensity={1.8} position={[5, 7, 4]} color="#fff8ef" shadow-mapSize={[2048, 2048]} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} shadow-radius={4} shadow-normalBias={0.025} />
+    <CameraRig activeMode={props.activeMode} atDesk={props.atDesk} />
+    <Room onEnterDesk={() => props.onSelectMode(null)} />
     <Computer {...props} />
     <Keyboard {...props} />
+    <PlushPenguin interactive={props.activeMode === null || props.activeMode === 'about'} />
+    <PlushBear interactive={props.activeMode === null || props.activeMode === 'about'} />
     <Nintendo3DS {...props} />
     <CassettePlayer {...props} />
     <Turntable {...props} />

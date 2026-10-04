@@ -1,7 +1,7 @@
 :root {
   font-family: "Trebuchet MS", Arial, sans-serif;
   color: #263c3b;
-  background: #c4b7cc;
+  background: #f3c6d9;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -34,6 +34,8 @@ h1, h2, h3, p { margin: 0; letter-spacing: 0; }
 .label-device { color: #8b7280; font-size: 9px; margin-top: 2px; }
 .device-surface { pointer-events: auto; user-select: text; }
 .device-surface button, .device-surface a { transition: background 130ms ease; }
+.plush-hotspot { display: block; width: 220px; height: 320px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.plush-hotspot:focus-visible { outline: 3px solid #eb9c92; outline-offset: 8px; border-radius: 8px; }
 
 .crt-desktop { width: 640px; height: 410px; display: flex; flex-direction: column; color: #173d3d; background: #d9eee6; border: 3px solid #426f6a; border-radius: 4px; overflow: hidden; }
 .os-title { background: #224d4b; color: #d2f1dc; padding: 8px 14px; height: 34px; display: flex; align-items: center; gap: 8px; font: 15px "Courier New", monospace; flex-shrink: 0; }

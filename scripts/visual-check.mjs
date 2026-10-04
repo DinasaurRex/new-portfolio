@@ -19,7 +19,9 @@ async function waitForCamera(page) {
   let stableFrames = 0;
   for (let attempt = 0; attempt < 80; attempt++) {
     await page.waitForTimeout(150);
-    const bounds = await page.locator('.device-focused').evaluateAll(elements => elements.flatMap(element => {
+    const focused = page.locator('.device-focused');
+    const surface = await focused.count() ? focused : page.locator('[data-testid="computer-screen"]');
+    const bounds = await surface.evaluateAll(elements => elements.flatMap(element => {
       const { x, y, width, height } = element.getBoundingClientRect();
       return [x, y, width, height];
     }));
@@ -57,11 +59,59 @@ async function assertStandbyControls(page) {
 
 async function inspect(label, viewport) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 1, isMobile: label === 'mobile' });
+  page.setDefaultTimeout(60000);
+  await page.clock.install();
   page.on('pageerror', error => errors.push(`${label}: ${error.message}`));
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.locator('canvas[data-ready="true"]').waitFor();
+  await page.locator('[data-testid="contact-screen"]').waitFor({ state: 'visible' });
+  await page.locator('[data-testid="computer-screen"]').waitFor({ state: 'visible' });
+  await page.locator('[data-testid="project-screen"]').waitFor({ state: 'visible' });
+  await page.locator('[data-testid="hardware-screen"]').waitFor({ state: 'visible' });
   await page.waitForTimeout(500);
+  const artDimensions = await page.evaluate(async () => {
+    const image = new Image();
+    image.src = '/art/wall-print.png';
+    await image.decode();
+    return [image.naturalWidth, image.naturalHeight];
+  });
+  assert.equal(artDimensions[0] / artDimensions[1], 1.5, 'Wall art aspect ratio changed');
+  await waitForCamera(page);
+  assert.equal(await page.locator('main').getAttribute('data-mode'), 'room');
+  const overviewComputer = await page.locator('[data-testid="computer-screen"]').boundingBox();
+  await capture(page, `${label}-overview`);
+  await page.getByRole('button', { name: 'Sit at the desk', exact: true }).click();
+  await waitForCamera(page);
+  assert.equal(await page.locator('main').getAttribute('data-mode'), 'desk');
+  const deskComputer = await page.locator('[data-testid="computer-screen"]').boundingBox();
+  assert(deskComputer.width > overviewComputer.width * 1.15, 'Entering the desk does not move closer');
   await capture(page, `${label}-room`);
+  assert(await page.locator('[data-testid="contact-screen"]').isVisible(), 'Turntable display is clipped in the desk view');
+  for (const animal of ['penguin', 'bear']) {
+    const plush = page.getByRole('button', { name: `Wave to the ${animal}`, exact: true });
+    const plushBox = await plush.boundingBox();
+    assert(plushBox && plushBox.x >= 0 && plushBox.y >= 0 && plushBox.x + plushBox.width <= viewport.width && plushBox.y + plushBox.height < viewport.height - 65, `${animal} is outside the desk view`);
+    // Hold animation time still while software-rendered screenshots are captured.
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 60000));
+    const idlePlush = PNG.sync.read(await page.screenshot());
+    await plush.dispatchEvent('click');
+    await page.clock.fastForward(700);
+    await page.clock.fastForward(16);
+    assert.equal(await plush.getAttribute('data-wave-state'), 'waving');
+    const wavingPlush = PNG.sync.read(await capture(page, `${label}-${animal}-wave`));
+    let plushPixels = 0;
+    for (let y = Math.max(0, Math.floor(plushBox.y - 20)); y < Math.min(viewport.height, plushBox.y + plushBox.height + 20); y++) {
+      for (let x = Math.max(0, Math.floor(plushBox.x - 20)); x < Math.min(viewport.width, plushBox.x + plushBox.width + 20); x++) {
+        const i = (y * idlePlush.width + x) * 4;
+        if (Math.abs(idlePlush.data[i] - wavingPlush.data[i]) > 15) plushPixels++;
+      }
+    }
+    assert(plushPixels > 5, `${animal} wave does not move the 3D model`);
+    await page.clock.fastForward(2500);
+    await page.clock.fastForward(16);
+    assert.equal(await plush.getAttribute('data-wave-state'), 'idle');
+    await page.clock.resume();
+  }
   const roomComputer = await page.locator('[data-testid="computer-screen"]').boundingBox();
   const roomProjects = await page.locator('[data-testid="project-screen"]').boundingBox();
   const roomHardware = await page.locator('[data-testid="hardware-screen"]').boundingBox();
@@ -76,6 +126,15 @@ async function inspect(label, viewport) {
   }
   assert(colors.size > 30, `Canvas appears blank (${colors.size} colors)`);
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight), 'Page overflows viewport');
+  if (process.env.PORTFOLIO_PLUSH_ONLY === '1') {
+    const penguin = await page.getByRole('button', { name: 'Wave to the penguin', exact: true }).boundingBox();
+    const bear = await page.getByRole('button', { name: 'Wave to the bear', exact: true }).boundingBox();
+    const center = roomComputer.x + roomComputer.width / 2;
+    assert(penguin.x + penguin.width < center && bear.x > center, 'Plush toys are not on opposite sides of the monitor');
+    console.log(`${label}: scene rendered (${colors.size} colors), left penguin, right bear, and both waves passed`);
+    await page.close();
+    return;
+  }
 
   // Click the actual room object label, then use the device's physical buttons.
   await page.getByRole('button', { name: 'Projects 3DS', exact: true }).click();
@@ -194,6 +253,12 @@ async function inspect(label, viewport) {
   await focus(page, 'Open 3DS', 'projects');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('main').getAttribute('data-mode'), 'desk');
+  await page.getByRole('button', { name: 'View room', exact: true }).click();
+  await waitForCamera(page);
+  assert.equal(await page.locator('main').getAttribute('data-mode'), 'room');
+  await page.getByRole('button', { name: 'Projects 3DS', exact: true }).click();
+  await waitForCamera(page);
+  assert.equal(await page.locator('main').getAttribute('data-mode'), 'projects');
   console.log(`${label}: 3D rendered (${colors.size} sampled colors), animation (${changed} changed pixels), all device navigation and links passed`);
   await page.close();
 }
@@ -201,5 +266,16 @@ async function inspect(label, viewport) {
 try {
   await inspect('desktop', { width: 1440, height: 900 });
   await inspect('mobile', { width: 390, height: 844 });
+  const reducedMotion = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  reducedMotion.on('pageerror', error => errors.push(`reduced motion: ${error.message}`));
+  await reducedMotion.goto(baseUrl, { waitUntil: 'networkidle' });
+  await reducedMotion.locator('canvas[data-ready="true"]').waitFor();
+  await reducedMotion.getByRole('button', { name: 'Sit at the desk', exact: true }).click();
+  for (const animal of ['penguin', 'bear']) {
+    const plush = reducedMotion.getByRole('button', { name: `Wave to the ${animal}`, exact: true });
+    await plush.click();
+    assert.equal(await plush.getAttribute('data-wave-state'), 'idle', `${animal} ignores reduced-motion preference`);
+  }
+  await reducedMotion.close();
   assert.deepEqual(errors, [], 'Browser runtime errors');
 } finally { if (errors.length) console.log('Browser errors:', errors); await browser.close(); }
