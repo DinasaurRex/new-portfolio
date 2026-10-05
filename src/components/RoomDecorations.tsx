@@ -36,13 +36,13 @@ export function WoodFloor() {
     const map = new THREE.CanvasTexture(canvas);
     map.colorSpace = THREE.SRGBColorSpace;
     map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(100 / 12, 10);
+    map.repeat.set(55.5 / 12, 10);
     map.anisotropy = 4;
     return map;
   }, []);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <mesh position={[0, -1.44, 36.75]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-    <planeGeometry args={[100, 80]} />
+  return <mesh position={[-22.25, -2.7, 36.75]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+    <planeGeometry args={[55.5, 80]} />
     <meshStandardMaterial map={texture} roughness={0.92} />
   </mesh>;
 }
@@ -50,9 +50,9 @@ export function WoodFloor() {
 export function WallPrint() {
   const texture = useTexture('/art/wall-print.png');
   useEffect(() => { texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; texture.needsUpdate = true; }, [texture]);
-  return <group position={[2.88, 2.9, -3.12]}>
-    <RoundedBox args={[1.7, 1.14, 0.075]} radius={0.02} smoothness={3} castShadow><meshStandardMaterial color="#ffe2a8" roughness={0.8} /></RoundedBox>
-    <mesh position={[0, 0, 0.044]}><boxGeometry args={[1.6, 1.05, 0.016]} /><meshStandardMaterial color="#ffe2a8" roughness={1} /></mesh>
+  return <group position={[2.88, 3.06, -3.12]} scale={[1.3, 1.3, 1]}>
+    <RoundedBox args={[1.7, 1.14, 0.075]} radius={0.02} smoothness={3} castShadow><meshStandardMaterial color="#b78660" roughness={0.8} /></RoundedBox>
+    <mesh position={[0, 0, 0.044]}><boxGeometry args={[1.6, 1.05, 0.016]} /><meshStandardMaterial color="#a7714e" roughness={1} /></mesh>
     <mesh position={[0, 0, 0.055]} receiveShadow><planeGeometry args={[1.46, 1.46 / 1.5]} /><meshStandardMaterial map={texture} roughness={1} /></mesh>
   </group>;
 }
@@ -118,14 +118,12 @@ export function PlushPenguin({ interactive }: { interactive: boolean }) {
   const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene')!);
   const { arm, head, wave, waving } = usePlushWave(0.6, 0);
   const resources = useMemo(() => {
-    const fabric = createPlushFabric();
-    const options = { roughness: 0.99, sheen: 0.8, sheenColor: '#d8cbd3', sheenRoughness: 1, map: fabric, bumpMap: fabric, bumpScale: 0.018 };
+    const options = { roughness: 0.99, sheen: 0.8, sheenColor: '#d8cbd3', sheenRoughness: 1 };
     const dark = new THREE.MeshPhysicalMaterial({ ...options, color: '#222329' });
     const cream = new THREE.MeshPhysicalMaterial({ ...options, color: '#fff3e7' });
-    const peach = new THREE.MeshPhysicalMaterial({ ...options, color: '#eea08e', bumpScale: 0.022 });
+    const peach = new THREE.MeshPhysicalMaterial({ ...options, color: '#eea08e' });
     const orange = new THREE.MeshPhysicalMaterial({ ...options, color: '#f39b1c' });
     const faceData = new Uint8Array(512 * 256 * 4);
-    const yarn = (fabric.image as HTMLCanvasElement).getContext('2d')!.getImageData(0, 0, 128, 128).data;
     // Paint the heart-shaped face onto the curved head, rather than floating patches.
     for (let y = 0; y < 256; y++) for (let x = 0; x < 512; x++) {
       const phi = x / 512 * Math.PI * 2;
@@ -134,8 +132,7 @@ export function PlushPenguin({ interactive }: { interactive: boolean }) {
       const py = Math.cos(theta);
       const pz = Math.sin(phi) * Math.sin(theta);
       const white = isPenguinFace(px, py, pz);
-      const shade = yarn[((y % 128) * 128 + x % 128) * 4];
-      const color = white ? [255, 243, 231].map(value => Math.round(value * shade / 255)) : [34, 35, 41].map(value => Math.max(8, Math.round(value + (shade - 225) * 0.65)));
+      const color = white ? [255, 243, 231] : [34, 35, 41];
       const i = (y * 512 + x) * 4;
       faceData.set([...color, 255], i);
     }
@@ -146,10 +143,10 @@ export function PlushPenguin({ interactive }: { interactive: boolean }) {
     face.needsUpdate = true;
     const headMaterial = new THREE.MeshPhysicalMaterial({ ...options, map: face });
     const sphere = new THREE.SphereGeometry(1, 48, 32);
-    return { fabric, face, dark, cream, peach, orange, headMaterial, sphere };
+    return { face, dark, cream, peach, orange, headMaterial, sphere };
   }, []);
   useEffect(() => () => {
-    resources.fabric.dispose(); resources.face.dispose(); resources.sphere.dispose();
+    resources.face.dispose(); resources.sphere.dispose();
     [resources.dark, resources.cream, resources.peach, resources.orange, resources.headMaterial].forEach(material => material.dispose());
   }, [resources]);
 
@@ -206,7 +203,7 @@ export function PlushBear({ interactive }: { interactive: boolean }) {
     [resources.fur, resources.cream, resources.pink].forEach(material => material.dispose());
     resources.smiles.forEach(geometry => geometry.dispose());
   }, [resources]);
-  return <group position={[1.65, 0.0725, 0.65]} rotation={[0, -0.12, 0]} onClick={event => { event.stopPropagation(); wave(); }}>
+  return <group position={[1.65, 0.0725, 0.05]} rotation={[0, -0.4, 0]} onClick={event => { event.stopPropagation(); wave(); }}>
     <mesh geometry={resources.sphere} material={resources.fur} position={[0, 0.3, 0]} scale={[0.235, 0.275, 0.185]} castShadow receiveShadow />
     <mesh geometry={resources.sphere} material={resources.cream} position={[0, 0.272, 0.158]} scale={[0.162, 0.193, 0.043]} castShadow />
     {[-1, 1].map(side => <group key={side}>

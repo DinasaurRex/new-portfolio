@@ -8,11 +8,14 @@ import { CassetteScreen, ComputerScreen, ContactScreen, ProjectBottomScreen, Pro
 import { WallPrint, PlushBear, PlushPenguin, WoodFloor } from './RoomDecorations';
 import { CozyRoom } from './CozyRoom';
 
-type SceneProps = { activeMode: PortfolioMode | null; atDesk: boolean; onSelectMode: (mode: PortfolioMode | null) => void };
+type SceneProps = { activeMode: PortfolioMode | null; atDesk: boolean; onSelectMode: (mode: PortfolioMode | null) => void; night: boolean; lampOn: boolean; onToggleLamp: () => void };
 type DeviceProps = SceneProps & { mode: PortfolioMode };
 type Vector = [number, number, number];
 
 const desktopSurfaceY = 0.0725;
+// Leave a small clearance between the desktop's rear edge and the back wall.
+const deskOffsetZ = -1.22;
+const turntableZ = -0.77;
 const deviceScales: Record<PortfolioMode, number> = { about: 1, projects: 0.68, hardware: 0.71, contact: 1 };
 const cassetteYaw = -0.32;
 const cassetteTilt = -0.16;
@@ -27,7 +30,7 @@ const locations: Record<PortfolioMode, Vector> = {
   about: [-0.3, 1.12, 0.15],
   projects: [-3.2, desktopSurfaceY + (0.99 - desktopSurfaceY) * deviceScales.projects, 1.05 - 0.23 * deviceScales.projects],
   hardware: cassetteScreenCenter.toArray() as Vector,
-  contact: [3.15, 1.35, -1.07],
+  contact: [3.15, 1.35, turntableZ + 0.08],
 };
 
 function Box({ size, position = [0, 0, 0], color, radius = 0.05, rotation, metalness = 0.08 }: { size: Vector; position?: Vector; color: string; radius?: number; rotation?: Vector; metalness?: number }) {
@@ -37,7 +40,7 @@ function Box({ size, position = [0, 0, 0], color, radius = 0.05, rotation, metal
 function DeviceLabel({ mode, position, activeMode, onSelectMode }: DeviceProps & { position: Vector }) {
   const portal = useRef(document.querySelector<HTMLDivElement>('.world-scene')!);
   const detail = modeDetails[mode];
-  return <Html portal={portal} position={position} center zIndexRange={[110, 100]} style={{ display: activeMode === null ? 'block' : 'none' }}><button className="object-label" style={{ '--object-color': detail.accent } as React.CSSProperties} onClick={() => onSelectMode(mode)}><span className="label-dot" />{detail.label}<span className="label-device">{detail.device}</span></button></Html>;
+  return <Html portal={portal} position={position} center zIndexRange={[110, 100]} style={{ display: activeMode === null ? 'block' : 'none' }}><button className="object-label" aria-label={`${detail.label}: ${detail.device}`} title={detail.device} style={{ '--object-color': detail.accent } as React.CSSProperties} onClick={() => onSelectMode(mode)}><span className="label-dot" aria-hidden="true" />{detail.label}</button></Html>;
 }
 
 function Screen({ children, mode, activeMode, onSelectMode, position, rotation, factor, physical = false }: DeviceProps & { children: React.ReactNode; position: Vector; rotation?: Vector; factor: number; physical?: boolean }) {
@@ -57,6 +60,7 @@ function CameraRig({ activeMode, atDesk }: { activeMode: PortfolioMode | null; a
     const aspect = size.width / size.height;
     const overview = !atDesk && activeMode === null;
     const target = new THREE.Vector3(...(activeMode ? locations[activeMode] : overview ? [0, 0.6, 0.15] as Vector : [0, 1, 0] as Vector));
+    target.z += deskOffsetZ;
     const height = activeMode === 'about' ? 2.9 / Math.max(0.4, 1 - 140 / size.height) : activeMode === 'projects' ? 2.65 / Math.max(0.4, 1 - 140 / size.height) : activeMode ? 2.3 : overview ? 6.5 : 5.4;
     const width = activeMode === 'about' ? (aspect < 0.8 ? 3.2 : 4.0) : activeMode === 'projects' ? (aspect < 0.8 ? 2.6 : 3.1) : activeMode ? (aspect < 0.8 ? 2.45 : 2.75) : overview ? (aspect < 0.8 ? 12.8 : 14.3) : 10.4;
     // Match close-up distance to physical scale so smaller devices retain readable screens.
@@ -76,12 +80,12 @@ function CameraRig({ activeMode, atDesk }: { activeMode: PortfolioMode | null; a
 function Computer(props: SceneProps) {
   const device = { ...props, mode: 'about' as const };
   return <group position={[-0.3, 0, -0.8]} onClick={event => { event.stopPropagation(); props.onSelectMode('about'); }}>
-    <Box size={[3.12, 2.38, 0.9]} position={[0, 1.5, 0]} color="#82cfc0" radius={0.16} />
+    <Box size={[3.12, 2.38, 0.5]} position={[0, 1.5, 0.2]} color="#82cfc0" radius={0.16} />
     <Box size={[2.8, 1.84, 0.06]} position={[0, 1.65, 0.48]} color="#344d50" radius={0.08} />
     <Box size={[2.56, 1.64, 0.012]} position={[0, 1.65, 0.519]} color="#102a31" radius={0.025} />
     <Screen {...device} position={[0, 1.65, 0.537]} factor={1.6}><ComputerScreen /></Screen>
-    <Box size={[0.62, 0.35, 0.6]} position={[0, 0.18, 0.05]} color="#467d78" />
-    <Box size={[1.65, 0.12, 1]} position={[0, 0.04, 0.12]} color="#5b9e92" />
+    <Box size={[0.46, 0.22, 0.32]} position={[0, 0.26, 0.1]} color="#467d78" radius={0.04} />
+    <Box size={[1.1, 0.1, 0.7]} position={[0, 0.1225, 0.15]} color="#5b9e92" radius={0.04} />
     <mesh position={[1.23, 0.62, 0.5]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.06, 0.06, 0.025, 24]} /><meshStandardMaterial color="#ffe698" emissive="#ffb454" emissiveIntensity={0.6} /></mesh>
     {Array.from({ length: 5 }, (_, i) => <Box key={i} size={[0.03, 0.1, 0.025]} position={[-1.25 + i * 0.09, 0.63, 0.49]} color="#4c857d" radius={0.01} />)}
     <DeviceLabel {...device} position={[0, 2.98, 0]} />
@@ -89,7 +93,7 @@ function Computer(props: SceneProps) {
 }
 
 function Keyboard({ onSelectMode }: SceneProps) {
-  return <group position={[-0.3, 0.174, 1.12]} onClick={event => { event.stopPropagation(); onSelectMode('about'); }}>
+  return <group position={[-0.3, desktopSurfaceY + 0.012 + 0.07, 1.12]} onClick={event => { event.stopPropagation(); onSelectMode('about'); }}>
     <Box size={[2.45, 0.14, 0.88]} color="#f8c5b7" radius={0.06} />
     {[0, 1, 2, 3].map(row => Array.from({ length: 12 }, (_, col) => row === 3 && col >= 4 && col <= 7 ? null : <Box key={`${row}-${col}`} size={[0.15, 0.04, 0.13]} position={[-1.05 + col * 0.19, 0.1, -0.27 + row * 0.18]} color={col === 0 ? '#ffa265' : row === 3 ? '#85c8b8' : '#f9e3d0'} radius={0.013} />))}
     <Box size={[0.72, 0.04, 0.13]} position={[0, 0.1, 0.28]} color="#bca3d4" radius={0.015} />
@@ -171,7 +175,7 @@ function Turntable(props: SceneProps) {
   const reducedMotion = useRef(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const device = { ...props, mode: 'contact' as const };
   useFrame((_, delta) => { if (disc.current && !reducedMotion.current) disc.current.rotation.y += delta * 0.45; });
-  return <group position={[3.15, 1.065, -1.15]} rotation={[0, -0.17, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('contact'); }}>
+  return <group position={[3.15, 1.065, turntableZ]} rotation={[0, -0.17, 0]} onClick={event => { event.stopPropagation(); props.onSelectMode('contact'); }}>
     <Box size={[2.18, 0.18, 1.6]} color="#988bd0" radius={0.045} />
     <Box size={[2.13, 0.022, 1.55]} position={[0, 0.096, 0]} color="#b1a4d3" radius={0.025} />
     {[-0.84, 0.84].map(x => [-0.59, 0.59].map(z => <mesh key={`${x}-${z}`} position={[x, -0.105, z]} castShadow><cylinderGeometry args={[0.095, 0.085, 0.03, 24]} /><meshStandardMaterial color="#3b354d" roughness={0.9} /></mesh>))}
@@ -247,44 +251,49 @@ function Bookshelf() {
   </group>;
 }
 
-function Room({ onEnterDesk }: { onEnterDesk: () => void }) {
+function Room({ onEnterDesk, seated, night, lampOn, onToggleLamp }: { onEnterDesk: () => void; seated: boolean; night: boolean; lampOn: boolean; onToggleLamp: () => void }) {
   return <group onClick={event => { event.stopPropagation(); onEnterDesk(); }}>
     <WoodFloor />
-    <CozyRoom />
-    <Box size={[9.8, 0.18, 4.3]} position={[0, -0.06, 0.2]} color="#f2bf8f" radius={0.08} />
-    <Box size={[9.62, 0.055, 4.12]} position={[0, 0.045, 0.2]} color="#ffce9d" radius={0.07} />
-    {[-4.3, 4.3].map(x => <Box key={x} size={[0.16, 1.4, 0.16]} position={[x, -0.83, 1.65]} color="#b68458" />)}
-    <Box size={[2.4, 0.11, 1.66]} position={[3.15, 0.89, -1.15]} color="#c99c88" />
-    {[2.16, 4.14].map(x => <Box key={x} size={[0.11, 0.84, 1.48]} position={[x, 0.48, -1.15]} color="#c99c88" radius={0.02} />)}
-    <Box size={[2.9, 0.028, 1.22]} position={[-0.3, 0.09, 1.12]} color="#b18ed1" radius={0.05} />
+    <CozyRoom seated={seated} deskOffsetZ={deskOffsetZ} night={night} lampOn={lampOn} onToggleLamp={onToggleLamp} />
+    <group position={[0, 0, deskOffsetZ]}>
+      <Box size={[9.8, 0.18, 4.3]} position={[0, -0.06, 0.2]} color="#f2bf8f" radius={0.08} />
+      <Box size={[9.62, 0.055, 4.12]} position={[0, 0.045, 0.2]} color="#ffce9d" radius={0.015} />
+      {[-4.3, 4.3].map(x => [-1.25, 1.65].map(z => <Box key={`${x}-${z}`} size={[0.2, 2.55, 0.2]} position={[x, -1.425, z]} color="#b68458" radius={0.025} />))}
+      <Box size={[2.4, 0.11, 1.66]} position={[3.15, 0.89, turntableZ]} color="#c99c88" />
+      {[2.16, 4.14].map(x => <Box key={x} size={[0.11, 0.84, 1.48]} position={[x, 0.48, turntableZ]} color="#c99c88" radius={0.02} />)}
+      <Box size={[2.9, 0.012, 1.22]} position={[-0.3, desktopSurfaceY + 0.006, 1.12]} color="#b18ed1" radius={0.005} />
+      <Box size={[0.46, 0.3, 0.66]} position={[1.65, 0.3, -1.12]} color="#ffc879" radius={0.04} />
+      {[0, 1, 2, 3].map(i => <Box key={i} size={[0.019, 0.19, 0.012]} position={[1.49 + i * 0.1, 0.33, -0.78]} color="#bc8549" radius={0.006} />)}
+    </group>
     <Bookshelf />
     <WallPrint />
-    <Box size={[0.46, 0.3, 0.66]} position={[1.65, 0.3, -1.12]} color="#ffc879" radius={0.04} />
-    {[0, 1, 2, 3].map(i => <Box key={i} size={[0.019, 0.19, 0.012]} position={[1.49 + i * 0.1, 0.33, -0.78]} color="#bc8549" radius={0.006} />)}
   </group>;
 }
 
 function SceneContent(props: SceneProps) {
-  const sunTarget = useMemo(() => { const target = new THREE.Object3D(); target.position.set(-0.3, 0, 0.8); return target; }, []);
+  const sunTarget = useMemo(() => { const target = new THREE.Object3D(); target.position.set(-0.3, 0, 0.8 + deskOffsetZ); return target; }, []);
   return <>
-    <color attach="background" args={['#f3c6d9']} />
-    <ambientLight intensity={1.05} color="#ffffff" />
-    <hemisphereLight args={['#fff9ed', '#b4bdc8', 1.15]} />
+    <color attach="background" args={[props.night ? '#25253d' : '#f3c6d9']} />
+    <ambientLight intensity={props.night ? 0.07 : 1.05} color={props.night ? '#bfc7ed' : '#ffffff'} />
+    <hemisphereLight args={[props.night ? '#b4c3f0' : '#fff9ed', props.night ? '#61485d' : '#b4bdc8', props.night ? 0.14 : 1.15]} />
     <primitive object={sunTarget} />
-    <directionalLight target={sunTarget} castShadow intensity={1.4} position={[9, 5.2, -0.5]} color="#fff7e9" shadow-mapSize={[2048, 2048]} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} shadow-radius={3} shadow-normalBias={0.025} />
-    <directionalLight castShadow intensity={1.8} position={[5, 7, 4]} color="#fff8ef" shadow-mapSize={[2048, 2048]} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} shadow-radius={4} shadow-normalBias={0.025} />
+    <directionalLight target={sunTarget} castShadow intensity={props.night ? 0.7 : 1.4} position={[9, 5.2, -0.5]} color={props.night ? '#b1c7ff' : '#fff7e9'} shadow-mapSize={[2048, 2048]} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} shadow-radius={3} shadow-normalBias={0.025} />
+    <directionalLight castShadow intensity={props.night ? 0.05 : 1.8} position={[5, 7, 4]} color={props.night ? '#bfc8f0' : '#fff8ef'} shadow-mapSize={[2048, 2048]} shadow-camera-left={-8} shadow-camera-right={8} shadow-camera-top={8} shadow-camera-bottom={-8} shadow-radius={4} shadow-normalBias={0.025} />
     <CameraRig activeMode={props.activeMode} atDesk={props.atDesk} />
-    <Room onEnterDesk={() => props.onSelectMode(null)} />
-    <Computer {...props} />
-    <Keyboard {...props} />
-    <PlushPenguin interactive={props.activeMode === null || props.activeMode === 'about'} />
-    <PlushBear interactive={props.activeMode === null || props.activeMode === 'about'} />
-    <Nintendo3DS {...props} />
-    <CassettePlayer {...props} />
-    <Turntable {...props} />
+    <Room onEnterDesk={() => props.onSelectMode(null)} seated={props.atDesk || props.activeMode !== null} night={props.night} lampOn={props.lampOn} onToggleLamp={props.onToggleLamp} />
+    <pointLight position={[-0.3, 1.6, -0.1 + deskOffsetZ]} color="#bbf3df" intensity={props.night && (props.activeMode === null || props.activeMode === 'about') ? 0.45 : 0} distance={3} />
+    <group position={[0, 0, deskOffsetZ]}>
+      <Computer {...props} />
+      <Keyboard {...props} />
+      <PlushPenguin interactive={props.activeMode === null || props.activeMode === 'about'} />
+      <PlushBear interactive={props.activeMode === null || props.activeMode === 'about'} />
+      <Nintendo3DS {...props} />
+      <CassettePlayer {...props} />
+      <Turntable {...props} />
+    </group>
   </>;
 }
 
 export function RetroDeskScene(props: SceneProps) {
-  return <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 4, 10], fov: 42, near: 0.1, far: 80 }} gl={{ antialias: true, powerPreference: 'high-performance' }}><Suspense fallback={null}><SceneContent {...props} /></Suspense></Canvas>;
+  return <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 4, 10], fov: 42, near: 0.1, far: 1000 }} gl={{ antialias: true, powerPreference: 'high-performance' }}><Suspense fallback={null}><SceneContent {...props} /></Suspense></Canvas>;
 }
